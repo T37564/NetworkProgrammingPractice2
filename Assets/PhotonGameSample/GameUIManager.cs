@@ -75,6 +75,7 @@ public class GameUIManager : MonoBehaviour
         {
             playerScoreTexts[1] = player1ScoreText;
             player1ScoreText.text = "Player1 Score: 0";
+            player1ScoreText.color = Color.blue;
         }
         else
         {
@@ -85,6 +86,7 @@ public class GameUIManager : MonoBehaviour
         {
             playerScoreTexts[2] = player2ScoreText;
             player2ScoreText.text = "Player2 Score: 0";
+            player2ScoreText.color = Color.red;
         }
         else
         {
@@ -123,7 +125,7 @@ public class GameUIManager : MonoBehaviour
                 Debug.Log("GameUIManager: CountdownToStart state - waiting for countdown display");
                 break;
             case GameState.InGame:
-                statusWindow.text = "Game is running";
+                statusWindow.text = "Game Start!!!";
                 Debug.Log("GameUIManager: Set text to 'Game is running'");
                 break;
             case GameState.GameOver:
