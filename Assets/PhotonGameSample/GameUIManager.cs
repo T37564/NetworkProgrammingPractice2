@@ -66,6 +66,8 @@ public class GameUIManager : MonoBehaviour
         {
             RequestGameRestart();
         }
+
+        
     }
 
     private void InitializePlayerScoreTexts()

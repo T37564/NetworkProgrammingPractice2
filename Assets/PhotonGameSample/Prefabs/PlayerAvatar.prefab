@@ -126,7 +126,6 @@ GameObject:
   - component: {fileID: 4742052467818878735}
   - component: {fileID: 3304530218209725375}
   - component: {fileID: 4017780048919980028}
-  - component: {fileID: 9129383588578865586}
   - component: {fileID: 3186174519529393053}
   m_Layer: 0
   m_Name: PlayerAvatar
@@ -237,6 +236,7 @@ MonoBehaviour:
       Data: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
   _playerId: 0
   _Score: 0
+  warpPosition: {fileID: 0}
 --- !u!114 &3304530218209725375
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -263,19 +263,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6dc8550b9cc135468ec205d8360e205, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &9129383588578865586
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6330943986583318938}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6f1832039d24a714698f09b5c1fcb323, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  warpPosition: {fileID: 0}
 --- !u!54 &3186174519529393053
 Rigidbody:
   m_ObjectHideFlags: 0

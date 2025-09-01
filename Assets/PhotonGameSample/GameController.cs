@@ -742,8 +742,8 @@ public class GameController : MonoBehaviour
     /// </summary>
     private void OnGameStateChangedFromRPC(GameState newState)
     {
-        Debug.Log($"GameController: OnGameStateChangedFromRPC called with state: {newState}");
-        Debug.Log($"GameController: Current local state: {CurrentGameState}, IsMasterClient: {(networkGameManager != null ? networkGameManager.IsMasterClient : false)}");
+        //Debug.Log($"GameController: OnGameStateChangedFromRPC called with state: {newState}");
+        //Debug.Log($"GameController: Current local state: {CurrentGameState}, IsMasterClient: {(networkGameManager != null ? networkGameManager.IsMasterClient : false)}");
         
         // 非マスタークライアントでのみRPCによる状態変更を適用
         if (networkGameManager == null || !networkGameManager.IsMasterClient)

@@ -2,6 +2,8 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using TMPro.Examples;
+using System.Collections;
 
 /// <summary>
 /// 各プレイヤーのアバター（キャラクター）を表し、スコアや入力、ネットワーク同期、各種RPCを管理します。
@@ -12,28 +14,65 @@ public class PlayerAvatar : NetworkBehaviour
     public NetworkString<_16> NickName { get; set; }
 
     [Networked] public int playerId { get; set; } = 0;
-    [Networked, OnChangedRender(nameof(OnScoreChangedRender))] 
+    [Networked, OnChangedRender(nameof(OnScoreChangedRender))]
     public int Score { get; set; } = 0; // ネットワーク同期されるスコア
-    
+
     private NetworkCharacterController characterController;
     private NetworkMecanimAnimator networkAnimator;
-    
+
+    [Header("ワープしたときに出現する位置（青い床）")]
+    [SerializeField] private GameObject warpPosition = null;
+
+    public ItemManager itemManager = null;
+
     // Spawn位置を保存
     private Vector3 spawnPosition;
-    
+
     // 入力制御フラグ
     private bool inputEnabled = false;
-    
+
     // スコア変更時のイベント
     public event Action<int, int> OnScoreChanged; // (playerId, newScore)
 
     private int previousScore = 0;
-    
+
     // アイテム取得重複防止用
     private HashSet<int> processedItems = new HashSet<int>();
-    
+
     // デバッグ用：OnItemCaught呼び出し回数をトラッキング
     private int onItemCaughtCallCount = 0;
+
+    private bool isSpeedUp = false;
+
+    private float timer = 0.0f;
+
+
+    private void Start()
+    {
+        warpPosition = GameObject.Find("WarpBoxPosition");
+        itemManager = GameObject.Find("GameController").GetComponent<ItemManager>();
+    }
+
+
+    private void Update()
+    {
+        if (playerId == 1)
+        {
+            //1P側　スコアに応じてアイコンを表示する
+            for (int i = 0; i < Score; i++)
+            {
+                itemManager.icon1p[i].enabled = true;
+            }
+        }
+        else if (playerId == 2)
+        {
+            //2P側　スコアに応じてアイコンを表示する
+            for (int i = 0; i < Score; i++)
+            {
+                itemManager.icon2p[i].enabled = true;
+            }
+        }
+    }
 
     /// <summary>
     /// スコア変更時のネットワークコールバック。
@@ -63,10 +102,10 @@ public class PlayerAvatar : NetworkBehaviour
         {
             playerId = Object.InputAuthority.PlayerId;
         }
-        
+
         // Spawn位置を保存
         spawnPosition = transform.position;
-        
+
         characterController = GetComponent<NetworkCharacterController>();
         networkAnimator = GetComponentInChildren<NetworkMecanimAnimator>();
 
@@ -107,7 +146,7 @@ public class PlayerAvatar : NetworkBehaviour
 
         if (HasStateAuthority)
         {
-            ApplyScoreDelta(item.itemValue, reason:$"OnItemCaught-authority item={item.name}");
+            ApplyScoreDelta(item.itemValue, reason: $"OnItemCaught-authority item={item.name}");
         }
         else
         {
@@ -129,7 +168,7 @@ public class PlayerAvatar : NetworkBehaviour
     private void RPC_UpdateScore(int itemValue)
     {
         Debug.Log($"PlayerAvatar[{playerId}] RPC_UpdateScore received value={itemValue} (StateAuthority={HasStateAuthority})");
-        ApplyScoreDelta(itemValue, reason:"RPC_UpdateScore");
+        ApplyScoreDelta(itemValue, reason: "RPC_UpdateScore");
     }
 
     /// <summary>
@@ -175,9 +214,9 @@ public class PlayerAvatar : NetworkBehaviour
         {
             var cameraRotation = Quaternion.Euler(0f, Camera.main.transform.rotation.eulerAngles.y, 0f);
             var inputDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, Input.GetAxis("Vertical"));
-            
+
             characterController.Move(cameraRotation * inputDirection);
-            
+
             // ジャンプ
             if (Input.GetKey(KeyCode.Space))
             {
@@ -213,7 +252,7 @@ public class PlayerAvatar : NetworkBehaviour
         // GameEventsを通じて全クライアントに勝者メッセージを配信
         GameEvents.TriggerWinnerDetermined(winnerMessage);
     }
-    
+
     /// <summary>
     /// スコアをリセット（ゲーム再開時に使用）。
     /// </summary>
@@ -229,7 +268,7 @@ public class PlayerAvatar : NetworkBehaviour
             GameEvents.TriggerPlayerScoreChanged(playerId, Score);
         }
     }
-    
+
     /// <summary>
     /// プレイヤーをSpawn位置に戻す（ゲーム再開時に使用）。
     /// </summary>
@@ -238,7 +277,7 @@ public class PlayerAvatar : NetworkBehaviour
         if (HasStateAuthority)
         {
             Vector3 oldPosition = transform.position;
-            
+
             // NetworkCharacterControllerを使用している場合は、それを通じて位置を設定
             if (characterController != null)
             {
@@ -250,7 +289,7 @@ public class PlayerAvatar : NetworkBehaviour
             }
         }
     }
-    
+
     /// <summary>
     /// アイテムリセット通知（マスタークライアントから呼び出し）。
     /// </summary>
@@ -261,7 +300,7 @@ public class PlayerAvatar : NetworkBehaviour
             RPC_NotifyItemsReset();
         }
     }
-    
+
     /// <summary>
     /// RPC: アイテムリセットを全クライアントに通知。
     /// </summary>
@@ -269,5 +308,45 @@ public class PlayerAvatar : NetworkBehaviour
     private void RPC_NotifyItemsReset()
     {
         GameEvents.TriggerItemsReset();
+    }
+
+
+    private IEnumerator Speed()
+    {
+        yield return new WaitForSecondsRealtime(5.0f);
+
+        characterController.maxSpeed -= 4.0f;
+
+        isSpeedUp = false;
+    }
+
+
+    //赤い床に触れたとき
+    private void OnTriggerEnter(Collider other)
+    {
+        //赤い床のタグがワープの時
+        if (other.gameObject.tag == "Warp")
+        {
+            //キャラクターコントローラーがあるとき
+            if (characterController != null)
+            {
+                characterController.Teleport(warpPosition.transform.position);
+            }
+            else//ないとき
+            {
+                transform.position = warpPosition.transform.position;
+            }
+        }
+        else if (other.gameObject.tag == "SpeedUp")
+        {
+            if (!isSpeedUp)
+            {
+                isSpeedUp = true;
+
+                characterController.maxSpeed += 4.0f;
+
+                StartCoroutine(Speed());
+            }
+        }
     }
 }

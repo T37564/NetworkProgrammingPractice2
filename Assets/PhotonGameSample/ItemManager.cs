@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Fusion;
 using PhotonGameSample.Infrastructure; // ServiceRegistry 参照用 追加
+using UnityEngine.UI;
 
 /// <summary>
 /// シーン内のアイテムを一括管理し、アイテムのカウント・リセット・プレイヤーとの連携を行うマネージャ。
@@ -11,26 +12,31 @@ using PhotonGameSample.Infrastructure; // ServiceRegistry 参照用 追加
 /// </summary>
 public class ItemManager : MonoBehaviour
 {
+    [SerializeField] public Image[] icon1p = null;
+    [SerializeField] public Image[] icon2p = null;
+
     // イベント
     public event Action<int, int> OnItemCountChanged; // (currentCount, totalCount)
     public event Action OnAllItemsCollected; // 全アイテム収集完了時
-    
+
     // アイテム管理
     private int totalItemsInScene = 0; // シーン内の全アイテム数（固定）
     private int itemsCollected = 0;
     private bool hasValidTotal = false; // アイテム総数が確定したか
     public static ItemManager Instance { get; private set; }
-    
+
     // すべてのアイテムの参照をキャッシュ（非アクティブでも参照可能）
     private List<Item> cachedItems = new List<Item>();
-    
+
     // ネットワーク管理（初期化用のみ保持）
     private NetworkRunner networkRunner;
-    
+    private PlayerAvatar playerAvatar1 = null;
+    private PlayerAvatar playerAvatar2 = null;
+
     public int TotalItems => totalItemsInScene;
     public int CollectedItems => itemsCollected;
     public int RemainingItems => totalItemsInScene - itemsCollected;
-    
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -41,6 +47,12 @@ public class ItemManager : MonoBehaviour
         }
         Instance = this;
         Debug.Log($"ItemManager: Awake singleton set instanceID={GetInstanceID()}");
+
+        for (int i = 0; i < icon1p.Length; i++)
+        {
+            icon1p[i].enabled = false;
+            icon2p[i].enabled = false;
+        }
     }
 
     void Start()
@@ -81,9 +93,9 @@ public class ItemManager : MonoBehaviour
         pm.OnPlayerRegistered -= RegisterPlayer; // 直接 delegate 変換不可のためラップ
         pm.OnPlayerRegistered += RegisterPlayer;
     }
-    
+
     // 旧 RegisterToPlayerEvents() は PlayerManager 経由イベント方式へ移行したため削除
-    
+
     /// <summary>
     /// プレイヤーがアイテムをキャッチした時の処理
     /// </summary>
@@ -117,7 +129,7 @@ public class ItemManager : MonoBehaviour
         }
         Debug.Log($"ItemManager: HandleItemCaught end total={totalItemsInScene} collected={itemsCollected}");
     }
-    
+
     /// <summary>
     /// NetworkRunnerを設定（初期化時に呼び出し）
     /// </summary>
@@ -126,7 +138,7 @@ public class ItemManager : MonoBehaviour
         networkRunner = runner;
         Debug.Log("ItemManager initialized");
     }
-    
+
     /// <summary>
     /// シーン内の既存アイテムをカウントし、キャッシュします。
     /// </summary>
@@ -135,7 +147,7 @@ public class ItemManager : MonoBehaviour
         // アクティブ・非アクティブ関係なく、すべてのItemコンポーネントを取得してキャッシュ
         // Resources.FindObjectsOfTypeAllを使用して、非アクティブなオブジェクトも含めて検索
         var allItems = Resources.FindObjectsOfTypeAll<Item>();
-        
+
         // シーン内のオブジェクトのみをフィルタリング（Prefabは除外）
         var sceneItems = new List<Item>();
         foreach (var item in allItems)
@@ -146,25 +158,25 @@ public class ItemManager : MonoBehaviour
                 sceneItems.Add(item);
             }
         }
-        
+
         // キャッシュをクリアして再構築
         cachedItems.Clear();
         cachedItems.AddRange(sceneItems);
-        
-    totalItemsInScene = cachedItems.Count;
-    itemsCollected = 0; // リセット
-    hasValidTotal = totalItemsInScene > 0;
-    Debug.Log($"ItemManager: Found {totalItemsInScene} items in scene (instanceID={GetInstanceID()})");
-        
+
+        totalItemsInScene = cachedItems.Count;
+        itemsCollected = 0; // リセット
+        hasValidTotal = totalItemsInScene > 0;
+        Debug.Log($"ItemManager: Found {totalItemsInScene} items in scene (instanceID={GetInstanceID()})");
+
         // 既存アイテムにイベントを登録
         foreach (var item in cachedItems)
         {
             RegisterItemEvents(item);
         }
-        
+
         OnItemCountChanged?.Invoke(itemsCollected, totalItemsInScene);
     }
-    
+
     /// <summary>
     /// アイテムにイベントを登録します。
     /// </summary>
@@ -173,7 +185,7 @@ public class ItemManager : MonoBehaviour
     {
         // 現在は特別なイベントはないが、将来の拡張に備える
     }
-    
+
     /// <summary>
     /// プレイヤーをItemManagerに登録（GameControllerから呼び出される）
     /// </summary>
@@ -189,7 +201,7 @@ public class ItemManager : MonoBehaviour
             Debug.Log($"ItemManager: Player {player.playerId} registered via PlayerManager event");
         }
     }
-    
+
     /// <summary>
     /// アイテムを動的に追加（ゲーム中に新しいアイテムが生成される場合）
     /// </summary>
@@ -197,22 +209,22 @@ public class ItemManager : MonoBehaviour
     {
         totalItemsInScene++;
         RegisterItemEvents(item);
-        
+
         // UI更新
         OnItemCountChanged?.Invoke(itemsCollected, totalItemsInScene);
     }
-    
+
     /// <summary>
     /// アイテムを削除（ゲーム中にアイテムが破壊される場合）
     /// </summary>
     public void RemoveItem(Item item)
     {
         totalItemsInScene--;
-        
+
         // UI更新
         OnItemCountChanged?.Invoke(itemsCollected, totalItemsInScene);
     }
-    
+
     /// <summary>
     /// デバッグ情報を取得
     /// </summary>
@@ -220,30 +232,30 @@ public class ItemManager : MonoBehaviour
     {
         return $"Items: {itemsCollected}/{totalItemsInScene} (Remaining: {RemainingItems})";
     }
-    
+
     /// <summary>
     /// アイテムカウントをリセット（GameControllerから呼び出される）
     /// </summary>
     public void ResetItemCount()
     {
         itemsCollected = 0;
-        
+
         // UIを更新
         OnItemCountChanged?.Invoke(itemsCollected, totalItemsInScene);
-        
+
         Debug.Log($"ItemManager: Item count reset - {itemsCollected}/{totalItemsInScene}");
     }
-    
+
     /// <summary>
     /// 全アイテムをリセット（ゲーム再開時に使用）
     /// </summary>
     public void ResetAllItems()
     {
         Debug.Log("ItemManager: Resetting all items for game restart");
-        
+
         // アイテム収集数をリセット
         itemsCollected = 0;
-        
+
         // シーン内の全Itemオブジェクトをリセット
         Item[] allItems = FindObjectsByType<Item>(FindObjectsSortMode.None);
         foreach (var item in allItems)
@@ -254,16 +266,16 @@ public class ItemManager : MonoBehaviour
                 item.ResetItem();
             }
         }
-        
+
         // アイテム数を再初期化
         CountExistingItems();
-        
+
         // UIを更新
         OnItemCountChanged?.Invoke(itemsCollected, totalItemsInScene);
-        
+
         Debug.Log($"ItemManager: Reset complete - {totalItemsInScene} items available");
     }
-    
+
     /// <summary>
     /// RPC経由でのアイテムリセット（権限チェックなし）
     /// </summary>
@@ -295,9 +307,9 @@ public class ItemManager : MonoBehaviour
         OnItemCountChanged?.Invoke(itemsCollected, totalItemsInScene);
         Debug.Log($"ItemManager: ResetAllItemsViaRPC authoritativeResets={authoritativeResets} skipped(non-authority)={skipped} totalCached={cachedItems.Count}");
 
-    // ネットワークレプリケーションによる OnChangedRender が遅延した場合に備え、
-    // 次フレームで GameObject.activeSelf と IsItemActive の整合性を保証するフォールバックを実施。
-    StartCoroutine(ReactivateItemsNextFrame());
+        // ネットワークレプリケーションによる OnChangedRender が遅延した場合に備え、
+        // 次フレームで GameObject.activeSelf と IsItemActive の整合性を保証するフォールバックを実施。
+        StartCoroutine(ReactivateItemsNextFrame());
     }
 
     /// <summary>
@@ -344,7 +356,7 @@ public class ItemManager : MonoBehaviour
             Debug.Log($"ItemManager: ReactivateItemsNextFrame reactivated={reactivated}");
         }
     }
-    
+
     void OnDestroy()
     {
         // イベント購読解除
